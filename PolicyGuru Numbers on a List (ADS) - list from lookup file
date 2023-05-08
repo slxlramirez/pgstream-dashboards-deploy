@@ -1,0 +1,142 @@
+<form>
+  <label>PolicyGuru Numbers on a List (ADS) - list from lookup file</label>
+  <fieldset submitButton="true">
+    <input type="time" token="tc">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="stream_token">
+      <label>Stream</label>
+      <choice value="enum*">ENUM</choice>
+      <default>enum*</default>
+      <initialValue>enum*</initialValue>
+    </input>
+    <input type="dropdown" token="direction_token">
+      <label>Direction</label>
+      <choice value="INBOUND">INBOUND</choice>
+      <choice value="OUTBOUND">OUTBOUND</choice>
+      <choice value="*">BOTH</choice>
+      <default>INBOUND</default>
+      <initialValue>INBOUND</initialValue>
+    </input>
+    <input type="dropdown" token="sd_token">
+      <label>Source or Destination</label>
+      <choice value="sourcenumber">Source</choice>
+      <choice value="destinationnumber">Destination</choice>
+      <default>sourcenumber</default>
+    </input>
+    <input type="dropdown" token="numberList_token">
+      <label>List</label>
+      <fieldForLabel>lists</fieldForLabel>
+      <fieldForValue>lists</fieldForValue>
+      <search>
+        <query>| inputlookup pg_directory_listings.csv
+| dedup lists
+| table lists</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <single>
+        <title>Test Count</title>
+        <search base="cdr">
+          <query>| stats count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>CDR</title>
+        <search id="cdr">
+          <query>index="policyguru_data" resourceId="$stream_token$" [
+  search index="policyguru_data" resourceId="$stream_token$" NOT disposition.disposition="*"
+     | rex field=meta "direction(?&lt;place_holder&gt;.)(?&lt;direction&gt;.*)"
+     | search direction="$direction_token$"
+     | rename connections{}.left.facets{}.number as sourcenumber
+     | eval sourcenumber=mvdedup(sourcenumber)
+     | rename connections{}.right.facets{}.number as destinationnumber
+     | eval destinationnumber=mvdedup(destinationnumber)
+     | lookup pg_directory_listings.csv number AS $sd_token$ OUTPUT lists 
+     | search lists = "$numberList_token$"
+     | stats count by guid
+     | fields guid ]
+| stats values(*) as * by guid
+| eval timestamp = mvindex(timestamp, 0)
+| eval _time=(timestamp/1000)
+| table guid
+_time 
+timestamp 
+state.state 
+state.stateEnum 
+resourceId 
+modalities{}.modality
+connections{}.right.facets{}.cc
+connections{}.right.facets{}.xc
+connections{}.right.facets{}.region 
+connections{}.right.facets{}.rc 
+connections{}.right.facets{}.number
+connections{}.left.facets{}.cc 
+connections{}.left.facets{}.xc 
+connections{}.left.facets{}.region 
+connections{}.left.facets{}.rc 
+connections{}.left.facets{}.number
+connections{}.left.facets{}.country 
+connections{}.left.facets{}.number
+meta
+disposition.disposition
+id
+| rename
+state.state as state
+state.stateEnum as enum_state
+resourceId as routername 
+modalities{}.modality as call_type
+connections{}.left.facets{}.cc as source_cc
+connections{}.left.facets{}.xc as source_xc
+connections{}.left.facets{}.region as source_region
+connections{}.left.facets{}.number as source_number
+connections{}.left.facets{}.rc as source_rc
+connections{}.left.facets{}.country as source_country
+connections{}.right.facets{}.cc as destination_cc
+connections{}.right.facets{}.xc as desination_xc
+connections{}.right.facets{}.region as destination_region
+connections{}.right.facets{}.number as destination_number
+connections{}.right.facets{}.rc as destination_rc
+connections{}.right.facets{}.country as destination_country
+disposition.disposition as disposition 
+id as policyrule 
+| eval source_cc=mvdedup(source_cc)
+| eval source_xc=mvdedup(source_xc)
+| eval source_region=mvdedup(source_region)
+| eval source_rc=mvdedup(source_rc)
+| eval source_number=mvdedup(source_number)
+| eval source_country=mvdedup(source_country)
+| eval destination_cc=mvdedup(destination_cc)
+| eval desination_xc=mvdedup(desination_xc)
+| eval destination_region=mvdedup(destination_region)
+| eval destination_rc=mvdedup(destination_rc)
+| eval destination_country=mvdedup(destination_country)
+| eval destination_number=mvdedup(destination_number)
+| eval disposition=mvdedup(disposition)
+| eval policyrule=mvdedup(policyrule)
+| rex field=meta "direction(?&lt;place_holder&gt;.)(?&lt;direction&gt;.*)"
+| fields - meta place_holder
+| table _time guid routername direction source_number source_region destination_number destination_region disposition policyrule</query>
+          <earliest>$tc.earliest$</earliest>
+          <latest>$tc.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</form>
