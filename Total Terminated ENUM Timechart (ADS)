@@ -1,0 +1,38 @@
+<form>
+  <label>Total Terminated ENUM Timechart (ADS)</label>
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="field1">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <chart>
+        <title>Terminated Calls</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="TERMINATED"
+| table _time source sourcetype guid timestamp timestampStr 
+resourceId 
+disposition.disposition
+disposition.dispositionEnum	
+| rename
+disposition.disposition as disposition
+disposition.dispositionEnum as disposition_enum
+| timechart span=15m count</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">all</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/search/zzz__total_terminated_enum_drilldown_with_time_control?time_clicked=$click.value$&amp;form.tc.earliest=$click.value$</link>
+        </drilldown>
+      </chart>
+    </panel>
+  </row>
+</form>
