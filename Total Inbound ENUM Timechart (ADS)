@@ -1,0 +1,4 @@
+index="policyguru_data" resourceId="enum*" NOT disposition.disposition="ALLOWED"
+| rex field=meta "direction:(?<direction>.*)"
+| search direction="INBOUND"
+| timechart span=15m count
