@@ -1,0 +1,40 @@
+<dashboard>
+  <label>Compare PG Direct and ADS Data (Yesterday by Hour)</label>
+  <row>
+    <panel>
+      <chart>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" NOT disposition.disposition="*"
+| timechart span=1h count as ads_calls
+| append
+[
+| dbxquery
+timeout=1800
+connection=ngp_connection
+query="
+SELECT  to_char(to_timestamp(flowtime/1000) AT TIME ZONE 'CST6CDT','YYYY-MM-DD hh24:00')  as datekey,
+        count(guid) as calls
+FROM    master.flowstart a
+WHERE   a.analyticstime &gt;= (extract ('epoch' from date_trunc('day', current_date)::timestamp AT TIME ZONE 'CST6CDT' AT TIME ZONE 'GMT'  - interval '1 day')*1000)::bigint AND
+        a.analyticstime  &lt; (extract ('epoch' from date_trunc('day', current_date)::timestamp AT TIME ZONE 'CST6CDT' AT TIME ZONE 'GMT'  + interval '0 day')*1000)::bigint AND
+        a.routername LIKE 'enum%'
+GROUP BY to_char(to_timestamp(flowtime/1000) AT TIME ZONE 'CST6CDT','YYYY-MM-DD hh24:00')
+ORDER BY to_char(to_timestamp(flowtime/1000) AT TIME ZONE 'CST6CDT','YYYY-MM-DD hh24:00') 
+"
+shortnames=t
+| table datekey calls
+| eval _time=strptime(datekey,"%Y-%m-%d %H:%M")
+| timechart span=1h sum(calls) as pg_calls
+]
+| timechart span=1h sum(ads_calls) as ads sum(pg_calls) as pg</query>
+          <earliest>-1d@d</earliest>
+          <latest>@d</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+</dashboard>
