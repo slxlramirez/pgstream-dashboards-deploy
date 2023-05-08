@@ -1,0 +1,196 @@
+<form>
+  <label>zzz - Total Terminated ENUM Drilldown (with Time Control)</label>
+  <fieldset submitButton="false">
+    <input type="time" token="tc">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <table>
+        <title>About this dashboard</title>
+        <search>
+          <done>
+            <set token="time_clicked_plus_15">0</set>
+            <eval token="time_clicked_plus_15">relative_time($time_clicked$,"+15m")</eval>
+            <eval token="form.tc.latest">relative_time($time_clicked$,"+15m")</eval>
+          </done>
+          <query>| makeresults 
+| eval notes="This dashboard is used for drilldown from a top level dashboard and requires parameters passed in the URL"
+| fields - _time</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <single>
+        <title>Time Clicked</title>
+        <search>
+          <query>| makeresults 
+| eval time_display=$time_clicked$
+| fields - _time
+| eval c_time=strftime(time_display,"%m/%d/%y %H:%M:%S") 
+| table c_time</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Total Calls</title>
+        <search base="cdr">
+          <query>| stats count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Calls by 1m</title>
+        <search base="cdr">
+          <query>| timechart span=1m count by routername</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.text">Calls</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Calls by 1m by Policy Rule</title>
+        <search base="cdr">
+          <query>| timechart span=1m count by policyrule</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Top Policy Rules</title>
+        <search base="cdr">
+          <query>| stats count as calls by policyrule
+| sort - calls</query>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Top Sources</title>
+        <search base="cdr">
+          <query>| stats count as calls by sourcenumber
+| sort - calls</query>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Top Destinations</title>
+        <search base="cdr">
+          <query>| stats count as calls by destination_number
+| sort - calls</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>display data</title>
+        <search id="cdr">
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="TERMINATED"
+| table _time guid id resourceId disposition.disposition disposition.dispositionEnum	
+| rename disposition.disposition as disposition disposition.dispositionEnum as disposition_enum id as policyrule
+| join guid
+[
+search index="policyguru_data" resourceId="enum*" NOT disposition.disposition="*"
+| table 
+_time timestamp timestampStr 
+state.state 
+state.stateEnum 
+source 
+resourceId 
+meta 
+guid 
+modalities{}.modality
+connections{}.right.facets{}.cc
+connections{}.right.facets{}.xc
+connections{}.right.facets{}.region 
+connections{}.right.facets{}.rc 
+connections{}.right.facets{}.country 
+connections{}.right.facets{}.number 
+connections{}.left.facets{}.cc 
+connections{}.left.facets{}.xc 
+connections{}.left.facets{}.region 
+connections{}.left.facets{}.rc 
+connections{}.left.facets{}.country 
+connections{}.left.facets{}.number 
+| rename
+state.state as state
+state.stateEnum as enum_state
+resourceId as routername 
+modalities{}.modality as call_type
+connections{}.left.facets{}.cc as source_cc
+connections{}.left.facets{}.xc as source_xc
+connections{}.left.facets{}.region as source_region
+connections{}.left.facets{}.rc as source_rc
+connections{}.left.facets{}.country as source_country
+connections{}.left.facets{}.number as sourcenumber
+connections{}.right.facets{}.cc as destination_cc
+connections{}.right.facets{}.xc as desination_xc
+connections{}.right.facets{}.region as destination_region
+connections{}.right.facets{}.rc as destination_rc
+connections{}.right.facets{}.country as destination_country
+connections{}.right.facets{}.number as destination_number
+| eval source_cc=mvdedup(source_cc)
+| eval source_xc=mvdedup(source_xc)
+| eval source_region=mvdedup(source_region)
+| eval source_rc=mvdedup(source_rc)
+| eval source_country=mvdedup(source_country)
+| eval sourcenumber=mvdedup(sourcenumber)
+| eval destination_cc=mvdedup(destination_cc)
+| eval desination_xc=mvdedup(desination_xc)
+| eval destination_region=mvdedup(destination_region)
+| eval destination_rc=mvdedup(destination_rc)
+| eval destination_country=mvdedup(destination_country)
+| eval destination_number=mvdedup(destination_number)
+| rex field=meta "direction:(?&lt;direction&gt;.*)"
+| fields - meta
+]
+| table _time guid timestampStr sourcenumber source_region destination_number destination_region direction routername disposition policyrule</query>
+          <earliest>$tc.earliest$</earliest>
+          <latest>$tc.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</form>
