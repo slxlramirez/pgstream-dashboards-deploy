@@ -1,0 +1,161 @@
+<form>
+  <label>Number Investigation ENUM (ADS) - Partial Match</label>
+  <fieldset submitButton="true">
+    <input type="time" token="tc">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="direction_token">
+      <label>Direction</label>
+      <choice value="INBOUND">INBOUND</choice>
+      <choice value="OUTBOUND">OUTBOUND</choice>
+      <choice value="*">BOTH</choice>
+      <default>INBOUND</default>
+      <initialValue>INBOUND</initialValue>
+    </input>
+    <input type="dropdown" token="sd_token">
+      <label>Source or Destination</label>
+      <choice value="sourcenumber">Source</choice>
+      <choice value="destinationnumber">Destination</choice>
+      <default>sourcenumber</default>
+    </input>
+    <input type="text" token="number_token">
+      <label>Number (any thing you want)</label>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <table>
+        <title>Dashboard Notes</title>
+        <search>
+          <query>| makeresults 
+| eval footer="This dashboard uses asterik/wildcards to match" 
+| append 
+[ | makeresults | eval footer="So if you provide 206555, then when the SPL runs it searches" ] 
+| append 
+[ | makeresults | eval footer="for *206555* in the selected field" ] 
+| table footer 
+| rename footer as "Notes"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Top Sources</title>
+        <search base="cdr">
+          <query>| stats count by sourcenumber
+| sort -count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Top Destinations</title>
+        <search base="cdr">
+          <query>| stats count by destinationnumber
+| sort -count</query>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <chart>
+        <title>By Call Disposition</title>
+        <search base="cdr">
+          <query>| stats count by disposition
+| eval disposition=disposition . " (" . count . ")"</query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Calls by hour</title>
+        <search base="cdr">
+          <query>| timechart span=1h count fixedrange=f</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <search base="cdr">
+          <query>| timechart span=1h count by routername fixedrange=f</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.nullValueMode">zero</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>CDR</title>
+        <search id="cdr">
+          <query>index="policyguru_data" resourceId="enum*" 
+| stats values(*) as * by guid
+| rex field=meta "direction:(?&lt;direction&gt;.*)"
+| search direction="$direction_token$"
+| rename connections{}.left.facets{}.number as sourcenumber
+| eval sourcenumber=mvdedup(sourcenumber)
+| rename connections{}.right.facets{}.number as destinationnumber
+| eval destinationnumber=mvdedup(destinationnumber)
+| search $sd_token$="*$number_token$*"
+| eval timestamp = mvindex(timestamp, 0)
+| eval _time=(timestamp/1000)
+| rename disposition.disposition as disposition 
+id as policyrule 
+modalities{}.modality as calltype 
+connections{}.left.facets{}.country as sourcecountry
+connections{}.right.facets{}.country as destinationcountry
+resourceId as routername
+| lookup pg_directory_listings.csv number AS sourcenumber OUTPUT lists
+| rename lists as sourcenumber_lists
+| table 
+_time 
+guid
+timestamp  
+direction
+routername 
+calltype
+sourcenumber
+sourcenumber_lists
+sourcecountry
+destinationnumber
+destinationcountry
+policyrule
+disposition
+| sort _time</query>
+          <earliest>$tc.earliest$</earliest>
+          <latest>$tc.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</form>
