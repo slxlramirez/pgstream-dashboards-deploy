@@ -1,0 +1,50 @@
+<form>
+  <label>Same Source Estimator (ADS)</label>
+  <fieldset submitButton="true">
+    <input type="time" token="field1">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="text" token="threshold_token">
+      <label>threshold</label>
+      <default>150</default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <single>
+        <title>Total</title>
+        <search base="cdr">
+          <query>| stats count</query>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <search id="cdr">
+          <query>index="policyguru_data" resourceId="enum*"
+| rex field=meta "direction:(?&lt;direction&gt;.*)"
+| search direction="INBOUND"
+| lookup pg_directory_listings.csv number AS "connections{}.left.facets{}.number" OUTPUT lists
+| fillnull value="No List Match" lists
+| search lists != "*Whitelist*" AND lists != "*Graylist*"
+| rename connections{}.left.facets{}.number as sourcenumber
+| eval sourcenumber=mvdedup(sourcenumber)
+| bin _time span=15m
+| stats count by sourcenumber _time
+| search count &gt; $threshold_token$</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</form>
