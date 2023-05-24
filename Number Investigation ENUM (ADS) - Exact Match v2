@@ -1,0 +1,273 @@
+<form>
+  <label>Number Investigation ENUM (ADS) - Exact Match v2</label>
+  <fieldset submitButton="true">
+    <input type="time" token="tc">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="direction_token">
+      <label>Direction</label>
+      <choice value="INBOUND">INBOUND</choice>
+      <choice value="OUTBOUND">OUTBOUND</choice>
+      <default>INBOUND</default>
+      <initialValue>INBOUND</initialValue>
+    </input>
+    <input type="dropdown" token="sd_token">
+      <label>Source or Destination</label>
+      <choice value="connections{}.left.facets{}.number">Source</choice>
+      <choice value="connections{}.right.facets{}.number">Destination</choice>
+    </input>
+    <input type="text" token="number_token">
+      <label>Number (Exact Match)</label>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <table>
+        <search>
+          <query>| makeresults 
+| eval footer="This dashboard uses the input and exact matches it" 
+| append 
+[ | makeresults | eval footer="So if you provide +1605206555, then when the SPL runs it searches" ] 
+| append 
+[ | makeresults | eval footer="for +1605206555 in the selected field, so you should provide +1605206555" ] 
+[ | makeresults | eval footer="providing 605206555 will NOT work (unless it is that way in the data)" ] 
+| table footer 
+| rename footer as "Notes"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Top Sources</title>
+        <search base="cdr">
+          <query>| stats count by sourcenumber
+| sort -count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Top Destinations</title>
+        <search base="cdr">
+          <query>| stats count by destinationnumber disposition
+| sort -count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <chart>
+        <title>By Call Disposition</title>
+        <search base="cdr">
+          <query>| stats count by disposition
+| eval disposition=disposition . " (" . count . ")"</query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Call Type (from sip)</title>
+        <search base="cdr_sip">
+          <query>| stats count by call_type
+| sort -count
+| eval call_type=call_type . " (" . count . ")"</query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+    <panel>
+      <table>
+        <title>Top Destinations by Call Type (from sip)</title>
+        <search base="cdr_sip">
+          <query>| stats count sum(duration_minutes) as dur_min by destination_number call_type
+| sort -count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Calls by hour</title>
+        <search base="cdr">
+          <query>| timechart span=1h count fixedrange=f</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.showDataLabels">minmax</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">none</option>
+      </chart>
+    </panel>
+    <panel>
+      <chart>
+        <search base="cdr">
+          <query>| timechart span=1h count by routername fixedrange=f</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.nullValueMode">zero</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <map>
+        <title>Destination Region</title>
+        <search base="cdr">
+          <query>| stats count by dregion
+| geom geo_us_states featureIdField=dregion</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="mapping.map.center">(39.828175,-98.5795)</option>
+        <option name="mapping.map.zoom">4</option>
+        <option name="mapping.type">choropleth</option>
+      </map>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>CDR</title>
+        <search id="cdr">
+          <query>index="policyguru_data" resourceId="enum*"  [ 
+  search index="policyguru_data" resourceId="enum*" "$direction_token$" $sd_token$="$number_token$" | table guid
+]
+| stats values(*) as * by guid
+| eval timestamp = mvindex(timestamp, 0)
+| eval _time=(timestamp/1000)
+| rename disposition.disposition as disposition
+id as policyrule
+modalities{}.modality as calltype
+connections{}.left.facets{}.country as sourcecountry
+connections{}.left.facets{}.number as sourcenumber
+connections{}.right.facets{}.country as destinationcountry
+connections{}.right.facets{}.number as destinationnumber
+resourceId as routername
+| rex field=meta "direction:(?&lt;direction&gt;.*)"
+| table
+_time
+guid
+timestamp 
+direction
+routername
+calltype
+sourcenumber
+sourcecountry
+destinationnumber
+destinationcountry
+policyrule
+disposition
+| sort _time
+| lookup pg_directory_listings.csv number AS sourcenumber OUTPUT lists
+| rename lists as sourcenumber_lists
+| rex field=destinationregion "(?&lt;city&gt;.*), (?&lt;Code&gt;.*)"
+| lookup us_states.csv Code OUTPUT State as state
+| eval dregion=case(len(Code)==2,state,1=1,destinationregion)
+| fields - Code,city,state</query>
+          <earliest>$tc.earliest$</earliest>
+          <latest>$tc.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>sip cdr (inbound and flowend only)</title>
+        <search id="cdr_sip">
+          <query>index="policyguru_data" resourceId="sip*" "INBOUND" "ENDED" $number_token$
+| table _time timestamp timestampStr
+state.state
+state.stateEnum
+source
+resourceId
+meta
+guid
+connections{}.right.facets{}.cc
+connections{}.right.facets{}.xc
+connections{}.right.facets{}.region
+connections{}.right.facets{}.rc
+connections{}.right.facets{}.country
+connections{}.right.facets{}.number
+connections{}.left.facets{}.cc
+connections{}.left.facets{}.xc
+connections{}.left.facets{}.region
+connections{}.left.facets{}.rc
+connections{}.left.facets{}.country
+connections{}.left.facets{}.number
+connections{}.control.l7{}.meta
+disposition
+offsetInMs
+| rename
+state.state as state
+state.stateEnum as enum_state
+resourceId as routername
+meta as direction
+connections{}.left.facets{}.cc as source_cc
+connections{}.left.facets{}.xc as source_xc
+connections{}.left.facets{}.region as source_region
+connections{}.left.facets{}.rc as source_rc
+connections{}.left.facets{}.country as source_country
+connections{}.left.facets{}.number as sourcenumber
+connections{}.right.facets{}.cc as destination_cc
+connections{}.right.facets{}.xc as desination_xc
+connections{}.right.facets{}.region as destination_region
+connections{}.right.facets{}.rc as destination_rc
+connections{}.right.facets{}.country as destination_country
+connections{}.right.facets{}.number as destination_number
+connections{}.control.l7{}.meta as calldisposition
+| eval source_cc=mvdedup(source_cc)
+| eval source_xc=mvdedup(source_xc)
+| eval source_region=mvdedup(source_region)
+| eval source_rc=mvdedup(source_rc)
+| eval source_country=mvdedup(source_country)
+| eval sourcenumber=mvdedup(sourcenumber)
+| eval destination_cc=mvdedup(destination_cc)
+| eval desination_xc=mvdedup(desination_xc)
+| eval destination_region=mvdedup(destination_region)
+| eval destination_rc=mvdedup(destination_rc)
+| eval destination_country=mvdedup(destination_country)
+| eval destination_number=mvdedup(destination_number)
+| eval calldisposition=mvdedup(calldisposition)
+| spath input=calldisposition
+| rex field=direction "direction(?&lt;place_holder&gt;.)(?&lt;direction&gt;.*)"
+| fields - place_holder calldisposition
+| rename callDispositions as call_type
+| eval duration_seconds=offsetInMs/1000
+| eval duration_minutes=ROUND(duration_seconds/60,1)</query>
+          <earliest>$tc.earliest$</earliest>
+          <latest>$tc.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</form>
