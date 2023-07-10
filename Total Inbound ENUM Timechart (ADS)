@@ -1,4 +1,32 @@
-index="policyguru_data" resourceId="enum*" NOT disposition.disposition="ALLOWED"
-| rex field=meta "direction:(?<direction>.*)"
+<form>
+  <label>Total Inbound ENUM Timechart (ADS)</label>
+  <fieldset submitButton="true" autoRun="true">
+    <input type="time" token="field1">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <chart>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" NOT disposition.disposition="ALLOWED"
+| rex field=meta "direction:(?&lt;direction&gt;.*)"
 | search direction="INBOUND"
-| timechart span=15m count
+| timechart span=15m count</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.drilldown">all</option>
+        <option name="refresh.display">progressbar</option>
+        <drilldown>
+          <link target="_blank">/app/search/zzz__total_inbound_enum_drilldown_with_time_control?time_clicked=$click.value$&amp;form.tc.earliest=$click.value$</link>
+        </drilldown>
+      </chart>
+    </panel>
+  </row>
+</form>
