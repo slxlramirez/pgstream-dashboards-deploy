@@ -31,8 +31,10 @@ shortnames=t
           <latest>@d</latest>
           <sampleRatio>1</sampleRatio>
         </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
         <option name="charting.chart">column</option>
         <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
         <option name="refresh.display">progressbar</option>
       </chart>
     </panel>
