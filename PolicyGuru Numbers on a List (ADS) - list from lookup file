@@ -59,9 +59,7 @@
         <title>CDR</title>
         <search id="cdr">
           <query>index="policyguru_data" resourceId="$stream_token$" [
-  search index="policyguru_data" resourceId="$stream_token$" NOT disposition.disposition="*"
-     | rex field=meta "direction(?&lt;place_holder&gt;.)(?&lt;direction&gt;.*)"
-     | search direction="$direction_token$"
+  search index="policyguru_data" resourceId="$stream_token$" "$direction_token$"
      | rename connections{}.left.facets{}.number as sourcenumber
      | eval sourcenumber=mvdedup(sourcenumber)
      | rename connections{}.right.facets{}.number as destinationnumber
@@ -70,67 +68,23 @@
      | search lists = "$numberList_token$"
      | stats count by guid
      | fields guid ]
-| stats values(*) as * by guid
+| stats
+values("connections{}.left.facets{}.number") as sourcenumber
+values("connections{}.left.facets{}.country") as sourcecountry
+values("connections{}.right.facets{}.number") as destinationnumber
+values("connections{}.right.facets{}.country") as destinationcountry
+values("meta") as meta
+values("id") as policyrule
+values("modalities{}.modality") as calltype
+values("resourceId") as routername
+values("disposition.disposition") as disposition
+values("timestamp") as timestamp
+by guid
 | eval timestamp = mvindex(timestamp, 0)
 | eval _time=(timestamp/1000)
-| table guid
-_time 
-timestamp 
-state.state 
-state.stateEnum 
-resourceId 
-modalities{}.modality
-connections{}.right.facets{}.cc
-connections{}.right.facets{}.xc
-connections{}.right.facets{}.region 
-connections{}.right.facets{}.rc 
-connections{}.right.facets{}.number
-connections{}.left.facets{}.cc 
-connections{}.left.facets{}.xc 
-connections{}.left.facets{}.region 
-connections{}.left.facets{}.rc 
-connections{}.left.facets{}.number
-connections{}.left.facets{}.country 
-connections{}.left.facets{}.number
-meta
-disposition.disposition
-id
-| rename
-state.state as state
-state.stateEnum as enum_state
-resourceId as routername 
-modalities{}.modality as call_type
-connections{}.left.facets{}.cc as source_cc
-connections{}.left.facets{}.xc as source_xc
-connections{}.left.facets{}.region as source_region
-connections{}.left.facets{}.number as source_number
-connections{}.left.facets{}.rc as source_rc
-connections{}.left.facets{}.country as source_country
-connections{}.right.facets{}.cc as destination_cc
-connections{}.right.facets{}.xc as desination_xc
-connections{}.right.facets{}.region as destination_region
-connections{}.right.facets{}.number as destination_number
-connections{}.right.facets{}.rc as destination_rc
-connections{}.right.facets{}.country as destination_country
-disposition.disposition as disposition 
-id as policyrule 
-| eval source_cc=mvdedup(source_cc)
-| eval source_xc=mvdedup(source_xc)
-| eval source_region=mvdedup(source_region)
-| eval source_rc=mvdedup(source_rc)
-| eval source_number=mvdedup(source_number)
-| eval source_country=mvdedup(source_country)
-| eval destination_cc=mvdedup(destination_cc)
-| eval desination_xc=mvdedup(desination_xc)
-| eval destination_region=mvdedup(destination_region)
-| eval destination_rc=mvdedup(destination_rc)
-| eval destination_country=mvdedup(destination_country)
-| eval destination_number=mvdedup(destination_number)
-| eval disposition=mvdedup(disposition)
-| eval policyrule=mvdedup(policyrule)
 | rex field=meta "direction(?&lt;place_holder&gt;.)(?&lt;direction&gt;.*)"
 | fields - meta place_holder
-| table _time guid routername direction source_number source_region destination_number destination_region disposition policyrule</query>
+| table _time guid routername direction sourcenumber sourcecountry destinationnumber destinationcountry disposition policyrule</query>
           <earliest>$tc.earliest$</earliest>
           <latest>$tc.latest$</latest>
         </search>
