@@ -20,12 +20,33 @@
           <earliest>$field1.earliest$</earliest>
           <latest>$field1.latest$</latest>
         </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
         <option name="charting.chart">column</option>
         <option name="charting.drilldown">all</option>
+        <option name="charting.legend.placement">bottom</option>
         <option name="refresh.display">progressbar</option>
         <drilldown>
-          <link target="_blank">/app/search/zzz__total_inbound_enum_drilldown_with_time_control?time_clicked=$click.value$&amp;form.tc.earliest=$click.value$</link>
+          <link target="_blank">/app/search/zzz__total_inbound_enum_drilldown_ads?time_clicked=$click.value$&amp;form.tc.earliest=$click.value$</link>
         </drilldown>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>by resourceId (routername)</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" NOT disposition.disposition="ALLOWED"
+| rex field=meta "direction:(?&lt;direction&gt;.*)"
+| search direction="INBOUND"
+| timechart span=15m count by resourceId</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.chart">line</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
       </chart>
     </panel>
   </row>
