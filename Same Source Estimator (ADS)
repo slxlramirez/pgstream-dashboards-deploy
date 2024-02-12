@@ -28,9 +28,7 @@
     <panel>
       <table>
         <search id="cdr">
-          <query>index="policyguru_data" resourceId="enum*"
-| rex field=meta "direction:(?&lt;direction&gt;.*)"
-| search direction="INBOUND"
+          <query>index="policyguru_data" resourceId="enum*" "INBOUND"
 | lookup pg_directory_listings.csv number AS "connections{}.left.facets{}.number" OUTPUT lists
 | fillnull value="No List Match" lists
 | search lists != "*Whitelist*" AND lists != "*Graylist*"
