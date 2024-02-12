@@ -58,62 +58,6 @@
   </row>
   <row>
     <panel>
-      <chart>
-        <title>Business Unit vs Non Busines Unit</title>
-        <search>
-          <query>index="policyguru_data" resourceId="enum*" 
-| stats values(*) as * by guid
-| rex field=meta "direction:(?&lt;direction&gt;.*)"
-| search direction="INBOUND"
-| lookup pg_directory_listings.csv number AS "connections{}.right.facets{}.number" OUTPUT lists 
-| search lists="*BU*"
-| eval timestamp = mvindex(timestamp, 0)
-| eval _time=(timestamp/1000)
-| rename disposition.disposition as disposition 
-id as policyrule 
-modalities{}.modality as calltype 
-connections{}.left.facets{}.country as sourcecountry
-connections{}.left.facets{}.number as sourcenumber
-connections{}.right.facets{}.country as destinationcountry
-connections{}.right.facets{}.number as destinationnumber
-resourceId as routername
-| eval businessunit="BU Calls"
-| timechart span=1h count by businessunit
-| append
-[
-search index="policyguru_data" resourceId="enum*" 
-| stats values(*) as * by guid
-| rex field=meta "direction:(?&lt;direction&gt;.*)"
-| search direction="INBOUND"
-| lookup pg_directory_listings.csv number AS "connections{}.right.facets{}.number" OUTPUT lists 
-| search NOT lists="*BU*"
-| eval timestamp = mvindex(timestamp, 0)
-| eval _time=(timestamp/1000)
-| rename disposition.disposition as disposition 
-id as policyrule 
-modalities{}.modality as calltype 
-connections{}.left.facets{}.country as sourcecountry
-connections{}.left.facets{}.number as sourcenumber
-connections{}.right.facets{}.country as destinationcountry
-connections{}.right.facets{}.number as destinationnumber
-resourceId as routername
-| eval businessunit="Non BU Calls"
-| timechart span=1h count by businessunit
-]</query>
-          <earliest>-7d@w0</earliest>
-          <latest>@w0</latest>
-        </search>
-        <option name="charting.axisTitleX.visibility">collapsed</option>
-        <option name="charting.chart">column</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-        <option name="refresh.display">progressbar</option>
-      </chart>
-    </panel>
-  </row>
-  <row>
-    <panel>
       <single>
         <title>Allowed Calls (Trend 8)</title>
         <search>
@@ -230,28 +174,34 @@ index="policyguru_data" resourceId="enum*" NOT disposition.disposition="*"
       <table>
         <title>Top 20 Suspicious Callers | Spikey (50+ calls)</title>
         <search>
-          <query>index="policyguru_data" resourceId="enum*" NOT disposition.disposition="*"
-| rex field=meta "direction(?&lt;place_holder&gt;.)(?&lt;direction&gt;.*)"
-| search direction="INBOUND"
-| lookup pg_directory_listings.csv number AS "connections{}.left.facets{}.number" OUTPUT lists
-| fillnull value="No List Match" lists
-| search lists != "*Whitelist*"
-| rename connections{}.left.facets{}.number as sourcenumber
-| eval sourcenumber=mvdedup(sourcenumber)
-| bucket _time span=day 
-| stats count as day_calls by _time sourcenumber
-| eval timecol=_time
-| stats max(day_calls) as max_calls by sourcenumber
-| lookup top_callers_last_week.csv sourcenumber AS sourcenumber OUTPUT total_calls
-| search total_calls &gt; 50 
-| eval perc_day=ROUND(max_calls/total_calls,3)*100
-| sort -perc_day -total_calls
+          <query>index="policyguru_data" resourceId="enum*" ("INBOUND" OR "disposition.disposition"="ALLOWED") 
+| stats values("connections{}.left.facets{}.number") as sourcenumber by guid
+| stats count by sourcenumber
 | lookup pg_directory_listings.csv number AS sourcenumber OUTPUT lists
 | fillnull value="No List Match" lists
 | search lists != "*Whitelist*"
-| sort -last_week_calls
-| fields - lists
-| head 20</query>
+| search count &gt; 50
+| sort -count
+| rename count as total_calls
+| join sourcenumber [
+search index="policyguru_data" resourceId="enum*" ("INBOUND" OR "disposition.disposition"="ALLOWED") 
+| stats values("connections{}.left.facets{}.number") as sourcenumber values(timestamp) as timestamp by guid
+| lookup pg_directory_listings.csv number AS sourcenumber OUTPUT lists
+| eval timestamp=mvindex(timestamp,0)
+| eval _time=(timestamp/1000)
+| bucket _time span=day
+| eval timecol=_time
+| stats count by sourcenumber timecol
+| stats max(count) as max_calls by sourcenumber
+| search max_calls &gt;= 25
+| sort -max_calls
+]
+| eval perc_day=ROUND(max_calls/total_calls,3)*100
+| search perc_day &gt;= 50
+| sort -perc_day -total_calls
+| head 10
+| rename max_calls as max_day_calls
+| table sourcenumber total_calls max_day_calls perc_day</query>
           <earliest>-7d@w0</earliest>
           <latest>@w0</latest>
         </search>
