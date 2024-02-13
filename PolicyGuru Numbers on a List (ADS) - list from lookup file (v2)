@@ -1,0 +1,87 @@
+<form>
+  <label>PolicyGuru Numbers on a List (ADS) - list from lookup file (v2)</label>
+  <fieldset submitButton="true">
+    <input type="time" token="tc">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="stream_token">
+      <label>Stream</label>
+      <choice value="enum*">ENUM</choice>
+      <default>enum*</default>
+      <initialValue>enum*</initialValue>
+    </input>
+    <input type="dropdown" token="direction_token">
+      <label>Direction</label>
+      <choice value="INBOUND">INBOUND</choice>
+      <choice value="OUTBOUND">OUTBOUND</choice>
+      <choice value="*">BOTH</choice>
+      <default>INBOUND</default>
+      <initialValue>INBOUND</initialValue>
+    </input>
+    <input type="dropdown" token="sd_token">
+      <label>Source or Destination</label>
+      <choice value="connections{}.left.facets{}.number">Source</choice>
+      <choice value="connections{}.right.facets{}.number">Destination</choice>
+    </input>
+    <input type="dropdown" token="numberList_token">
+      <label>List</label>
+      <fieldForLabel>lists</fieldForLabel>
+      <fieldForValue>lists</fieldForValue>
+      <search>
+        <query>| inputlookup pg_directory_listings.csv
+| dedup lists
+| table lists</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <single>
+        <title>Test Count</title>
+        <search base="cdr">
+          <query>| stats count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>CDR</title>
+        <search id="cdr">
+          <query>index="policyguru_data" resourceId="$stream_token$" ("disposition.disposition"=* OR [| inputlookup pg_directory_listings.csv | search lists="*$numberList_token$*" | fields number | rename number as "$sd_token$" | format])
+| stats
+values("connections{}.left.facets{}.number") as sourcenumber
+values("connections{}.left.facets{}.country") as sourcecountry
+values("connections{}.right.facets{}.number") as destinationnumber
+values("connections{}.right.facets{}.country") as destinationcountry
+values("meta") as meta
+values("id") as policyrule
+values("modalities{}.modality") as calltype
+values("resourceId") as routername
+values("disposition.disposition") as disposition
+values("timestamp") as timestamp
+by guid
+| search meta="*$direction_token$*"
+| eval timestamp = mvindex(timestamp, 0)
+| eval _time=(timestamp/1000)
+| rex field=meta "direction(?&lt;place_holder&gt;.)(?&lt;direction&gt;.*)"
+| fields - meta place_holder
+| table _time guid routername direction sourcenumber sourcecountry destinationnumber destinationcountry disposition policyrule</query>
+          <earliest>$tc.earliest$</earliest>
+          <latest>$tc.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</form>
