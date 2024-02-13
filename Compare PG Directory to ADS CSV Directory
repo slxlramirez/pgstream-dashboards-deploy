@@ -1,0 +1,38 @@
+<dashboard>
+  <label>Compare PG Directory to ADS CSV Directory</label>
+  <row>
+    <panel>
+      <single>
+        <title>PG Directory (SQL) Count</title>
+        <search>
+          <query>| dbxquery 
+connection="local_ngp" 
+timeout=1800 query="
+SELECT  b.name, a.value
+FROM    master.listing a INNER JOIN master.listinggroup b ON a.listinggroupid=b.id
+" shortnames=t
+| table name value
+| sort 0 name value
+| dedup value
+| stats count</query>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>pg_directory_listings.csv Count</title>
+        <search>
+          <query>| inputlookup pg_directory_listings.csv
+| dedup number
+| stats count</query>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+  </row>
+</dashboard>
