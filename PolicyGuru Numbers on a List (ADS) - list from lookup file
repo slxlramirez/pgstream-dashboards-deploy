@@ -65,7 +65,7 @@
      | rename connections{}.right.facets{}.number as destinationnumber
      | eval destinationnumber=mvdedup(destinationnumber)
      | lookup pg_directory_listings.csv number AS $sd_token$ OUTPUT lists 
-     | search lists = "$numberList_token$"
+     | search lists = "*$numberList_token$*"
      | stats count by guid
      | fields guid ]
 | stats
