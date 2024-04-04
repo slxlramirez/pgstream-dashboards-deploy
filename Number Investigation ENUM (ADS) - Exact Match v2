@@ -83,6 +83,36 @@
   <row>
     <panel>
       <chart>
+        <title>Calls by hour</title>
+        <search base="cdr">
+          <query>| timechart span=15m count fixedrange=f</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.showDataLabels">minmax</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">none</option>
+      </chart>
+    </panel>
+    <panel>
+      <chart>
+        <title>Calls by Hour by Enum</title>
+        <search base="cdr">
+          <query>| timechart span=15m count by routername fixedrange=f</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.nullValueMode">zero</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
         <title>Call Type (from sip)</title>
         <search base="cdr_sip">
           <query>| stats count by call_type
@@ -104,34 +134,6 @@
         <option name="drilldown">none</option>
         <option name="refresh.display">progressbar</option>
       </table>
-    </panel>
-  </row>
-  <row>
-    <panel>
-      <chart>
-        <title>Calls by hour</title>
-        <search base="cdr">
-          <query>| timechart span=1h count fixedrange=f</query>
-        </search>
-        <option name="charting.axisTitleX.visibility">collapsed</option>
-        <option name="charting.chart">column</option>
-        <option name="charting.chart.showDataLabels">minmax</option>
-        <option name="charting.chart.stackMode">stacked</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">none</option>
-      </chart>
-    </panel>
-    <panel>
-      <chart>
-        <search base="cdr">
-          <query>| timechart span=1h count by routername fixedrange=f</query>
-        </search>
-        <option name="charting.axisTitleX.visibility">collapsed</option>
-        <option name="charting.chart">line</option>
-        <option name="charting.chart.nullValueMode">zero</option>
-        <option name="charting.drilldown">none</option>
-        <option name="charting.legend.placement">bottom</option>
-      </chart>
     </panel>
   </row>
   <row>
@@ -202,7 +204,7 @@ disposition
       <table>
         <title>sip cdr (inbound and flowend only)</title>
         <search id="cdr_sip">
-          <query>index="policyguru_data" resourceId="sip*" "INBOUND" "ENDED" $number_token$
+          <query>index="policyguru_data" resourceId="sip*" "INBOUND" "ENDED" "$number_token$"
 | table _time timestamp timestampStr
 state.state
 state.stateEnum
