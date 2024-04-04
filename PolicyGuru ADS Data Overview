@@ -1,0 +1,191 @@
+<form>
+  <label>PolicyGuru ADS Data Overview</label>
+  <fieldset submitButton="true">
+    <input type="time" token="field1">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <chart>
+        <title>Inbound Calls by Day by Hour by Disposition (Last Week)</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="*"
+| rename disposition.disposition as disposition 
+| timechart usenull=f span=1h count by disposition</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.text">ALLOWED</option>
+        <option name="charting.axisTitleY2.text">REDIRECTED | TERMINATED</option>
+        <option name="charting.axisY2.enabled">1</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.overlayFields">REDIRECTED,TERMINATED</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <single>
+        <title>Allowed Calls (Trend 8)</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="ALLOWED"	
+| timechart span=1w count by disposition.dispositionEnum</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="colorBy">trend</option>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Terminated Calls (Trend 8)</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="TERMINATED"
+| timechart span=1w count by disposition.dispositionEnum</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="colorBy">trend</option>
+        <option name="drilldown">none</option>
+        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="refresh.display">progressbar</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    <panel>
+      <table>
+        <title>By Policy Rule (excl default allow)</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="*" NOT id="noguid_allow_case"
+| stats values(id) as policyrule by guid
+| stats count by policyrule
+| sort -count</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Top Inbound Source Numbers</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" "INBOUND"
+| stats values(connections{}.left.facets{}.number) as sourcenumber by guid
+| stats count by sourcenumber
+| sort - count
+| head 100</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Top Inbound Destination Numbers</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" "INBOUND"
+| stats values(connections{}.right.facets{}.number) as sourcenumber by guid
+| stats count by sourcenumber
+| sort - count
+| head 100</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Top Inbound Countries (excl United States)</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" "INBOUND"
+| stats values(connections{}.left.facets{}.country) as sourcecountry by guid
+| search sourcecountry != "United States"
+| stats count by sourcecountry
+| sort -count
+| head 10
+| eval sourcecountry = sourcecountry . " (" . count . ")"
+| rename sourcecountry as "Country"</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+    <panel>
+      <table>
+        <title>Top Inbound Countries (excl United States)</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" "INBOUND"
+| stats values(connections{}.left.facets{}.country) as sourcecountry by guid
+| search sourcecountry != "United States"
+| stats count by sourcecountry
+| sort -count
+| head 10</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="number" field="perc_diff">
+          <option name="precision">1</option>
+          <option name="unit">%</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>SecureLogix Footer</title>
+        <search>
+          <query>| makeresults | eval footer="PolicyGuru Solution | ETM System"
+| append
+[
+| makeresults | eval footer="
+ETM, We See Your Voice, SecureLogix, and the SecureLogix Emblem are registered trademarks or registered trademarks and registered service marks of SecureLogix Corporation in the U.S.A. and other countries. PolicyGuru is a registered trademark of SecureLogix Corporation in the U.S.A. All other trademarks mentioned herein are believed to be trademarks of their respective owners."
+]
+| append
+[
+| makeresults | eval footer="Copyright 2018 SecureLogix Corporation. All Rights Reserved.  This product is protected by one or more of the following patents: US 6,249,575 B1, US 6,320,948 B1, US 6,687,353 B1, US 6,718,024 B1, US 6,760,420 B2, US 6,760,421 B2, US 6,879,671 B1, US 7,133,511 B2, US 7,231,027 B2, US 7,440,558 B2, US 8,150,013 B2, CA 2,354,149, DE 1,415,459 B1, FR 1,415,459 B1, and GB 1,415,459 B1. U.S Patent Pending."
+]
+| append
+[
+| makeresults | eval footer="Confidential Information of SecureLogix Corporation"
+]
+
+| table footer
+| rename footer as "SecureLogix TPC"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</form>
