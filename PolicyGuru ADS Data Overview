@@ -36,7 +36,7 @@
   <row>
     <panel>
       <single>
-        <title>Allowed Calls (Trend 8)</title>
+        <title>Allowed Calls</title>
         <search>
           <query>index="policyguru_data" resourceId="enum*" disposition.disposition="ALLOWED"	
 | timechart span=1w count by disposition.dispositionEnum</query>
@@ -52,7 +52,7 @@
     </panel>
     <panel>
       <single>
-        <title>Terminated Calls (Trend 8)</title>
+        <title>Terminated Calls</title>
         <search>
           <query>index="policyguru_data" resourceId="enum*" disposition.disposition="TERMINATED"
 | timechart span=1w count by disposition.dispositionEnum</query>
@@ -119,17 +119,10 @@
     <panel>
       <chart>
         <title>Top Inbound Countries (excl United States)</title>
-        <search>
-          <query>index="policyguru_data" resourceId="enum*" "INBOUND"
-| stats values(connections{}.left.facets{}.country) as sourcecountry by guid
-| search sourcecountry != "United States"
-| stats count by sourcecountry
-| sort -count
-| head 10
+        <search base="intl">
+          <query>
 | eval sourcecountry = sourcecountry . " (" . count . ")"
 | rename sourcecountry as "Country"</query>
-          <earliest>$field1.earliest$</earliest>
-          <latest>$field1.latest$</latest>
         </search>
         <option name="charting.chart">pie</option>
         <option name="charting.drilldown">none</option>
@@ -139,7 +132,7 @@
     <panel>
       <table>
         <title>Top Inbound Countries (excl United States)</title>
-        <search>
+        <search id="intl">
           <query>index="policyguru_data" resourceId="enum*" "INBOUND"
 | stats values(connections{}.left.facets{}.country) as sourcecountry by guid
 | search sourcecountry != "United States"
@@ -177,7 +170,6 @@ ETM, We See Your Voice, SecureLogix, and the SecureLogix Emblem are registered t
 [
 | makeresults | eval footer="Confidential Information of SecureLogix Corporation"
 ]
-
 | table footer
 | rename footer as "SecureLogix TPC"</query>
           <earliest>-24h@h</earliest>
