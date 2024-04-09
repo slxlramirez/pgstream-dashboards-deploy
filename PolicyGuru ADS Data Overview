@@ -13,7 +13,7 @@
     <panel>
       <chart>
         <title>Inbound Calls by Day by Hour by Disposition (Last Week)</title>
-        <search>
+        <search id="disposition_calls">
           <query>index="policyguru_data" resourceId="enum*" disposition.disposition="*"
 | rename disposition.disposition as disposition 
 | timechart usenull=f span=1h count by disposition</query>
@@ -37,33 +37,29 @@
     <panel>
       <single>
         <title>Allowed Calls</title>
-        <search>
-          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="ALLOWED"	
-| timechart span=1w count by disposition.dispositionEnum</query>
-          <earliest>$field1.earliest$</earliest>
-          <latest>$field1.latest$</latest>
+        <search base="disposition_calls">
+          <query>| stats sum(ALLOWED)</query>
         </search>
         <option name="colorBy">trend</option>
+        <option name="colorMode">none</option>
         <option name="drilldown">none</option>
-        <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
+        <option name="rangeColors">["0x53a051","0xdc4e41"]</option>
+        <option name="rangeValues">[0]</option>
         <option name="refresh.display">progressbar</option>
-        <option name="useColors">1</option>
+        <option name="useColors">0</option>
       </single>
     </panel>
     <panel>
       <single>
         <title>Terminated Calls</title>
-        <search>
-          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="TERMINATED"
-| timechart span=1w count by disposition.dispositionEnum</query>
-          <earliest>$field1.earliest$</earliest>
-          <latest>$field1.latest$</latest>
+        <search base="disposition_calls">
+          <query>| stats sum(TERMINATED)</query>
         </search>
         <option name="colorBy">trend</option>
         <option name="drilldown">none</option>
         <option name="rangeColors">["0x53a051","0x0877a6","0xf8be34","0xf1813f","0xdc4e41"]</option>
         <option name="refresh.display">progressbar</option>
-        <option name="useColors">1</option>
+        <option name="useColors">0</option>
       </single>
     </panel>
     <panel>
@@ -170,6 +166,7 @@ ETM, We See Your Voice, SecureLogix, and the SecureLogix Emblem are registered t
 [
 | makeresults | eval footer="Confidential Information of SecureLogix Corporation"
 ]
+
 | table footer
 | rename footer as "SecureLogix TPC"</query>
           <earliest>-24h@h</earliest>
