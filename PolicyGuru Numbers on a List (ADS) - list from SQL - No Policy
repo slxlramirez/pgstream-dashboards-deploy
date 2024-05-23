@@ -1,0 +1,93 @@
+<form version="1.1">
+  <label>PolicyGuru Numbers on a List (ADS) - list from SQL - No Policy</label>
+  <fieldset submitButton="true">
+    <input type="time" token="tc">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="stream_token">
+      <label>Stream</label>
+      <choice value="enum*">ENUM</choice>
+      <default>enum*</default>
+      <initialValue>enum*</initialValue>
+    </input>
+    <input type="dropdown" token="direction_token">
+      <label>Direction</label>
+      <choice value="INBOUND">INBOUND</choice>
+      <choice value="OUTBOUND">OUTBOUND</choice>
+      <choice value="*">BOTH</choice>
+      <default>INBOUND</default>
+      <initialValue>INBOUND</initialValue>
+    </input>
+    <input type="dropdown" token="sd_token">
+      <label>Source or Destination</label>
+      <choice value="connections{}.left.facets{}.number">Source</choice>
+      <choice value="connections{}.right.facets{}.number">Destination</choice>
+    </input>
+    <input type="dropdown" token="numberList_token">
+      <label>List</label>
+      <fieldForLabel>name</fieldForLabel>
+      <fieldForValue>val</fieldForValue>
+      <search>
+        <query>| dbxquery connection="ngp_connection" query="SELECT b.NAME as NAME, b.NAME as VAL
+FROM master.listinggroup b" shortnames=t
+| table name val</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <single>
+        <title>Test Count</title>
+        <search base="cdr">
+          <query>| stats count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </single>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>CDR</title>
+        <search id="cdr">
+          <query>index="policyguru_data" resourceId="$stream_token$" "$direction_token$" [| dbxquery
+timeout=1800 connection="ngp_connection"
+query="
+                                        SELECT   CASE LEFT(a.value, 1)
+                                      WHEN '^' THEN SUBSTR(a.value, STRPOS(a.value,'+'), (LENGTH(a.value)-STRPOS(a.value,'+')+1))
+                                       ELSE a.value
+                                    END as value
+                                        FROM         MASTER.LISTING a INNER JOIN master.listinggroup b ON a.listinggroupid=b.id
+                                        WHERE      b.name = '$numberList_token$'
+" shortnames=t
+| fields value
+| rename value as "$sd_token$"
+| format]
+| rename "connections{}.left.facets{}.number" as sourcenumber
+"connections{}.left.facets{}.country" as sourcecountry
+"connections{}.right.facets{}.number" as destinationnumber
+"connections{}.right.facets{}.country" as destinationcountry
+"resourceId" as routername
+| eval sourcenumber=mvdedup(sourcenumber)
+| eval sourcecountry=mvdedup(sourcecountry)
+| eval destinationnumber=mvdedup(destinationnumber)
+| eval destinationcountry=mvdedup(destinationcountry)
+| rex field=meta "direction(?<place_holder>.)(?<direction>.*)"
+| fields - meta place_holder
+| table _time guid routername direction sourcenumber sourcecountry destinationnumber destinationcountry</query>
+          <earliest>$tc.earliest$</earliest>
+          <latest>$tc.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</form>
