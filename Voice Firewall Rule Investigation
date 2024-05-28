@@ -1,0 +1,136 @@
+<form version="1.1" theme="light">
+  <label>Voice Firewall Rule Investigation</label>
+  <fieldset submitButton="true">
+    <input type="time" token="field1">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="rule_token">
+      <label>24 hour Voice FW Rule</label>
+      <fieldForLabel>id</fieldForLabel>
+      <fieldForValue>id</fieldForValue>
+      <search>
+        <query>index="policyguru_data" resourceId="enum*" disposition.disposition="*" NOT id="noguid_allow_case"
+| dedup id
+| table id</query>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </search>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <chart>
+        <title>Calls By Source Number 30 Mins</title>
+        <search base="cdr">
+          <query>| timechart span=30m count by sourcenumber</query>
+        </search>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Top Source Countries</title>
+        <search base="cdr">
+          <query>|stats count by sourcecountry | sort -count</query>
+                </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Top Source Numbers</title>
+        <search base="cdr">
+          <query>| stats count by sourcenumber
+|sort -count</query>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Top Destination Numbers</title>
+        <search base="cdr">
+          <query>| stats count by destinationnumber
+|sort -count</query>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <map>
+        <title>Source Number Calling Location</title>
+        <search base="cdr">
+          <query>| rex field=sourceregion "(?&lt;city&gt;.*), (?&lt;Code&gt;.*)"
+| lookup us_states.csv Code OUTPUT State as state
+| eval sregion=case(len(Code)==2,state,1=1,sourceregion)
+| fields - Code,city,state | stats count by sregion
+| geom geo_us_states featureIdField=sregion</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="mapping.map.center">(39.828175,-98.5795)</option>
+        <option name="mapping.map.zoom">4</option>
+        <option name="mapping.type">choropleth</option>
+        <option name="refresh.display">progressbar</option>
+      </map>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>CDR</title>
+        <search id="cdr">
+          <query>index="policyguru_data" resourceId="enum*" 
+| stats
+values("connections{}.left.facets{}.number") as sourcenumber
+values("connections{}.left.facets{}.country") as sourcecountry
+values("connections{}.left.facets{}.region") as sourceregion
+values("connections{}.right.facets{}.number") as destinationnumber
+values("connections{}.right.facets{}.country") as destinationcountry
+values("connections{}.right.facets{}.region") as destinationregion
+values("meta") as meta
+values("id") as policyrule
+values("modalities{}.modality") as calltype
+values("resourceId") as routername
+values("disposition.disposition") as disposition
+values("timestamp") as timestamp
+by guid
+| rex field=meta "direction:(?&lt;direction&gt;.*)"
+| eval timestamp = mvindex(timestamp, 0)
+| eval _time=(timestamp/1000)
+|search policyrule="$rule_token$"
+| table
+_time
+guid
+timestamp 
+direction
+routername
+calltype
+sourcenumber
+sourcecountry
+sourceregion
+destinationnumber
+destinationcountry
+destinationregion
+policyrule
+disposition
+| sort _time</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</form>
