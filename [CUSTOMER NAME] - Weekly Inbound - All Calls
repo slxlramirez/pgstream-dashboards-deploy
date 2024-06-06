@@ -1,4 +1,4 @@
-<dashboard>
+<dashboard version="1.1">
   <label>Weekly Inbound Dashboard (ENUM) - All Calls (ADS) v1.1</label>
   <row>
     <panel>
@@ -353,83 +353,45 @@ connections{}.left.facets{}.number as sourcenumber
         <title>NVCL Trending Last 4 Weeks</title>
         <search>
           <query>index="policyguru_data" resourceId="enum*" 
-| stats values(*) as * by guid
-| rex field=meta "direction:(?&lt;direction&gt;.*)"
-| search direction="INBOUND"
-| lookup pg_directory_listings.csv number AS "connections{}.left.facets{}.number" OUTPUT lists 
-| search lists="Negative_Value_Call_List_HCL"
-| eval timestamp = mvindex(timestamp, 0)
-| eval _time=(timestamp/1000)
-| rename disposition.disposition as disposition 
-id as policyrule 
-modalities{}.modality as calltype 
-connections{}.left.facets{}.country as sourcecountry
-connections{}.left.facets{}.number as sourcenumber
-connections{}.right.facets{}.country as destinationcountry
-connections{}.right.facets{}.number as destinationnumber
-resourceId as routername
-| table 
-_time 
-guid
-timestamp  
-direction
-routername 
-calltype
-sourcenumber
-lists
-sourcecountry
-destinationnumber
-destinationcountry
-policyrule
-disposition
-| join type=left sourcenumber
-[
-| inputlookup securelogix_nhcl.csv
-| eval number="+".'Country Code'.'Area Code'.'Local Number'
-| rename "Last Name" as lastname number as sourcenumber
-| table lastname sourcenumber
+[  
+| inputlookup pg_directory_listings.csv
+| search lists="*NVCL*"
+| fields number
+| rename number as "connections{}.left.facets{}.number"
+| format
 ]
-| timechart fixedrange=false span=1w count</query>
+| rename  "connections{}.left.facets{}.number" as sourcenumber
+| stats values(sourcenumber) as sourcenumber 
+        values(timestamp) as timestamp
+        by guid
+| eval _time=(timestamp/1000)
+| timechart span=1w count</query>
           <earliest>-4w@w</earliest>
           <latest>@w</latest>
         </search>
         <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
       </single>
     </panel>
     <panel>
       <table>
         <title>NVCL Calls</title>
         <search>
-          <query>index="policyguru_data" resourceId="enum*" 
-| stats values(*) as * by guid
-| rex field=meta "direction:(?&lt;direction&gt;.*)"
-| search direction="INBOUND"
-| lookup pg_directory_listings.csv number AS "connections{}.left.facets{}.number" OUTPUT lists 
-| search lists="Negative_Value_Call_List_HCL"
-| eval timestamp = mvindex(timestamp, 0)
-| eval _time=(timestamp/1000)
-| rename disposition.disposition as disposition 
-id as policyrule 
-modalities{}.modality as calltype 
-connections{}.left.facets{}.country as sourcecountry
-connections{}.left.facets{}.number as sourcenumber
-connections{}.right.facets{}.country as destinationcountry
-connections{}.right.facets{}.number as destinationnumber
-resourceId as routername
-| table 
-_time 
-guid
-timestamp  
-direction
-routername 
-calltype
-sourcenumber
-lists
-sourcecountry
-destinationnumber
-destinationcountry
-policyrule
-disposition
+          <query>index="policyguru_data" resourceId="enum*" ("disposition.disposition"=* OR 
+[  
+| inputlookup pg_directory_listings.csv
+| search lists="*NVCL*"
+| fields number
+| rename number as "connections{}.left.facets{}.number"
+| format
+]
+)
+| rename  "connections{}.left.facets{}.number" as sourcenumber
+| rename "disposition.disposition" as disposition
+| stats values(sourcenumber) as sourcenumber 
+        values(disposition) as disposition
+        by guid
+| stats count by sourcenumber disposition
 | join type=left sourcenumber
 [
 | inputlookup securelogix_nhcl.csv
@@ -437,15 +399,16 @@ disposition
 | rename "Last Name" as lastname number as sourcenumber
 | table lastname sourcenumber
 ]
-| stats count by sourcenumber lastname 
-| table sourcenumber lastname count
-| rename sourcenumber as "Source Number" lastname as "Category" count as "Calls"
+| sort -count
+| table sourcenumber lastname disposition count
+| rename sourcenumber as "Source Number" lastname as "Category" disposition as "Disposition" count as "Calls"
 | sort -Calls
 | head 10</query>
           <earliest>-7d@w0</earliest>
           <latest>@w0</latest>
         </search>
         <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
       </table>
     </panel>
   </row>
