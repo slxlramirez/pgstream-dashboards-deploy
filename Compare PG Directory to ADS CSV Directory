@@ -1,4 +1,4 @@
-<dashboard>
+<dashboard version="1.1">
   <label>Compare PG Directory to ADS CSV Directory</label>
   <row>
     <panel>
@@ -6,7 +6,7 @@
         <title>PG Directory (SQL) Count</title>
         <search>
           <query>| dbxquery 
-connection="local_ngp" 
+connection="ngp_connection" 
 timeout=1800 query="
 SELECT  b.name, a.value
 FROM    master.listing a INNER JOIN master.listinggroup b ON a.listinggroupid=b.id
