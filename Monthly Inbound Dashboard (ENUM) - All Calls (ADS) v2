@@ -1,0 +1,400 @@
+<dashboard>
+  <label>Monthly Inbound Dashboard (ENUM) - All Calls (ADS) v2</label>
+  <row>
+    <panel>
+      <title>SecureLogix Report Information</title>
+      <table>
+        <search>
+          <query>| makeresults 
+| eval notes="Business Partner: SecureLogix" 
+| append 
+[
+| makeresults 
+| eval notes="Deliverable: PolicyGuru Weekly" 
+]
+| append
+[
+| search index="policyguru_data" resourceId="enum*" disposition.disposition="*"
+| timechart span=1d count by disposition.dispositionEnum	
+| rename disposition.dispositionEnum as disposition
+| stats min(_time) AS startDate, max(_time) AS endDate
+| convert timeformat="%F" ctime(*Date)
+| eval notes="Dates Covered: " . startDate . " to " . endDate
+| fields notes
+]
+| fields - _time
+| rename notes as "Report Information"</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Inbound Calls by Day by Disposition</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="*"
+| rename disposition.disposition as disposition 
+| timechart usenull=f span=1d count by disposition</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="charting.seriesColors">[0x233343, 0xea0026, 0xf7b32b, 0xC4C4C0]</option>
+        <option name="charting.fieldColors">{"ALLOWED": 0x233343,"TERMINATED":0xea0026, "REDIRECTED":0xf7b32bF, "NULL":0xC4C4C0}</option>
+        <option name="charting.axisTitleX.visibility">collapsed</option>
+        <option name="charting.axisTitleY.text">ALLOWED</option>
+        <option name="charting.axisTitleY2.text">REDIRECTED | TERMINATED</option>
+        <option name="charting.axisY2.enabled">1</option>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.overlayFields">REDIRECTED,TERMINATED</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <chart>
+        <title>Inbound Calls by Disposition</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="*"
+| rename disposition.disposition as disposition 
+| stats count by disposition
+| eval disposition=disposition . " (" . count . ")"</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="charting.seriesColors">[0x233343, 0xea0026, 0xf7b32b, 0xC4C4C0]</option>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Top Inbound Source Numbers</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" "INBOUND" 
+| rename connections{}.left.facets{}.number as sourcenumber
+| eval sourcenumber=mvdedup(sourcenumber)
+| stats count by sourcenumber
+| lookup pg_directory_listings.csv number AS sourcenumber OUTPUT lists 
+| fillnull value="No List" lists
+| sort 0 -count
+| head 100
+| search lists != "*Whitelist*"
+| search lists != "*Graylist*"
+| search lists != "*Blacklist*"
+| sort 0 -count
+| search NOT sourcenumber IN ("unavailable","anonymous")
+| head 10
+| table sourcenumber count</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Top Inbound Destination Numbers</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" "INBOUND" 
+| rename connections{}.right.facets{}.number as destinationnumber
+| eval destinationnumber=mvdedup(destinationnumber)
+| stats count by destinationnumber
+| sort -count
+| head 10</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Top 20 Suspicious Callers | Spikey (100+ calls)</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" ("INBOUND" OR "disposition.disposition"="ALLOWED") 
+| stats values("connections{}.left.facets{}.number") as sourcenumber by guid
+| stats count by sourcenumber
+| lookup pg_directory_listings.csv number AS sourcenumber OUTPUT lists
+| fillnull value="No List Match" lists
+| search lists != "*Whitelist*"
+| search count &gt; 100
+| sort -count
+| rename count as total_calls
+| join sourcenumber [
+search index="policyguru_data" resourceId="enum*" ("INBOUND" OR "disposition.disposition"="ALLOWED") 
+| stats values("connections{}.left.facets{}.number") as sourcenumber values(timestamp) as timestamp by guid
+| lookup pg_directory_listings.csv number AS sourcenumber OUTPUT lists
+| eval timestamp=mvindex(timestamp,0)
+| eval _time=(timestamp/1000)
+| bucket _time span=day
+| eval timecol=_time
+| stats count by sourcenumber timecol
+| stats max(count) as max_calls by sourcenumber
+| search max_calls &gt;= 50
+| sort -max_calls
+]
+| eval perc_day=ROUND(max_calls/total_calls,3)*100
+| search perc_day &gt;= 50
+| sort -perc_day -total_calls
+| head 10
+| rename max_calls as max_day_calls
+| table sourcenumber total_calls max_day_calls perc_day</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Suspicious Callers | Spread (at least 100 calls)</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" NOT disposition.disposition="*"
+| rex field=meta "direction(?&lt;place_holder&gt;.)(?&lt;direction&gt;.*)"
+| search direction="INBOUND"
+| lookup pg_directory_listings.csv number AS "connections{}.left.facets{}.number" OUTPUT lists
+| fillnull value="No List Match" lists
+| search lists != "*Whitelist*"
+| rename connections{}.left.facets{}.number as sourcenumber
+| eval sourcenumber=mvdedup(sourcenumber)
+| rename connections{}.right.facets{}.number as destinationnumber
+| eval destinationnumber=mvdedup(destinationnumber) 
+| eval length=len(sourcenumber)
+| search length=12
+| stats count dc(destinationnumber) as spread by sourcenumber
+| eval perc_spread = ROUND(spread/count,3)
+| eval perc_spread = perc_spread*100
+| search count &gt; 100
+| sort spread DESC
+| lookup pg_directory_listings.csv number AS sourcenumber OUTPUT lists
+| fillnull value="No List Match" lists
+| search lists != "*Whitelist*"
+| sort -last_week_calls
+| fields - lists
+| head 20</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Suspicious Callers | Invalid Format</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" NOT disposition.disposition="*"
+| rex field=meta "direction(?&lt;place_holder&gt;.)(?&lt;direction&gt;.*)"
+| search direction="INBOUND"
+| rename connections{}.left.facets{}.number as sourcenumber
+| eval sourcenumber=mvdedup(sourcenumber)
+| regex sourcenumber="^\+1[0-9]{3}[0-1]{1}[0-9]{6}|^\+1([0-9]{0,9})$|^\+1([01][0-9][0-9]|200)[0-9]{7}$|^\+1[0-9]{11,}|^\+[0-9]{16,}"
+| eval length=len(sourcenumber)
+| search length=12
+| stats count as calls by sourcenumber
+| lookup pg_directory_listings.csv number AS sourcenumber OUTPUT lists
+| fillnull value="No List Match" lists
+| search lists != "*Whitelist*"
+| sort -last_week_calls
+| fields - lists
+| head 20
+| sort -calls</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Calls by Firewall Rule</title>
+        <search id="firewallrules">
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="*"
+| stats count by id
+| rename id as rule
+| sort 0 -count</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <chart>
+        <title>Calls by Firewall Rule</title>
+        <search base="firewallrules">
+          <query>| eval rule=rule . " (" . count . ")"</query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>NVCL Calls</title>
+        <search id="nvclcalls">
+          <query>index="policyguru_data" resourceId="enum*" 
+| stats values(*) as * by guid
+| rex field=meta "direction:(?&lt;direction&gt;.*)"
+| search direction="INBOUND"
+| lookup pg_directory_listings.csv number AS "connections{}.left.facets{}.number" OUTPUT lists 
+| search lists="Negative_Value_Call_List_HCL"
+| rename disposition.disposition as disposition 
+id as policyrule 
+connections{}.left.facets{}.number as sourcenumber
+| join type=left sourcenumber
+[
+| inputlookup securelogix_nhcl.csv
+| eval number="+".'Country Code'.'Area Code'.'Local Number'
+| rename "Last Name" as lastname number as sourcenumber
+| table lastname sourcenumber
+]
+| stats count by lastname disposition
+| rename lastname as "category"
+| table category disposition count 
+| sort 0 -count</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <chart>
+        <title>NVCL by Category</title>
+        <search base="nvclcalls">
+          <query>| eval category = category . " (" . count . ")"
+| table category count</query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+    <panel>
+      <chart>
+        <title>NVCL by Disposition</title>
+        <search base="nvclcalls">
+          <query>| stats sum(count) as count by disposition
+| eval disposition = disposition . " (" . count . ")"
+| table disposition count</query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Top Inbound Countries (excl USA + Canada)</title>
+        <search id="inbcountries">
+          <query>index="policyguru_data" resourceId="enum*" "INBOUND" NOT ("United States" OR "Canada")
+| rename 
+connections{}.left.facets{}.country as source_country
+| eval source_country=mvdedup(source_country)
+| stats count by source_country
+| sort -count
+| head 10</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="number" field="perc_diff">
+          <option name="precision">1</option>
+          <option name="unit">%</option>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <chart>
+        <title>Top Inbound Countries (excl USA + Canada)</title>
+        <search base="inbcountries">
+          <query>| eval source_country = source_country . " (" . count . ")"</query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Top Outbound Countries (excl USA + Canada)</title>
+        <search id="outbcountries">
+          <query>index="policyguru_data" resourceId="enum*" "OUTBOUND" NOT ("United States" OR "Canada")
+| rename 
+connections{}.right.facets{}.country as country
+| eval country=mvdedup(country)
+| stats count by country
+| sort -count
+| head 10</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <chart>
+        <title>Top Outbound Countries (excl USA + Canada)</title>
+        <search base="outbcountries">
+          <query>| eval country = country . " (" . count . ")"</query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>SecureLogix Footer</title>
+        <search>
+          <query>| makeresults | eval footer="PolicyGuru olution | ETM System"
+| append
+[
+| makeresults | eval footer="
+ETM, We See Your Voice, SecureLogix, and the SecureLogix Emblem are registered trademarks or registered trademarks and registered service marks of SecureLogix Corporation in the U.S.A. and other countries. PolicyGuru is a registered trademark of SecureLogix Corporation in the U.S.A. All other trademarks mentioned herein are believed to be trademarks of their respective owners."
+]
+| append
+[
+| makeresults | eval footer="Copyright 2018 SecureLogix Corporation. All Rights Reserved.  This product is protected by one or more of the following patents: US 6,249,575 B1, US 6,320,948 B1, US 6,687,353 B1, US 6,718,024 B1, US 6,760,420 B2, US 6,760,421 B2, US 6,879,671 B1, US 7,133,511 B2, US 7,231,027 B2, US 7,440,558 B2, US 8,150,013 B2, CA 2,354,149, DE 1,415,459 B1, FR 1,415,459 B1, and GB 1,415,459 B1. U.S Patent Pending."
+]
+| table footer
+| rename footer as "SecureLogix TPC"</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>
