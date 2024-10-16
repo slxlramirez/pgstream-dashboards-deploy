@@ -10,7 +10,7 @@
 | append 
 [
 | makeresults 
-| eval notes="Deliverable: PolicyGuru Weekly" 
+| eval notes="Deliverable: PolicyGuru Monthly" 
 ]
 | append
 [
