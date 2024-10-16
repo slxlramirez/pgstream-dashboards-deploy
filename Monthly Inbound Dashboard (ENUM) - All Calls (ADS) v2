@@ -1,4 +1,4 @@
-<dashboard>
+<dashboard version="1.0">
   <label>Monthly Inbound Dashboard (ENUM) - All Calls (ADS) v2</label>
   <row>
     <panel>
