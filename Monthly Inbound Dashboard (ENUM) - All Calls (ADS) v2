@@ -409,7 +409,7 @@ connections{}.right.facets{}.country as country
       <table>
         <title>SecureLogix Footer</title>
         <search>
-          <query>| makeresults | eval footer="PolicyGuru olution | ETM System"
+          <query>| makeresults | eval footer="PolicyGuru Solution | ETM System"
 | append
 [
 | makeresults | eval footer="
