@@ -1,5 +1,5 @@
 <form>
-  <label>Number Investigation ENUM (ADS) - Exact Match v2</label>
+  <label>Number Investigation ENUM (ADS) - Exact Match</label>
   <fieldset submitButton="true">
     <input type="time" token="tc">
       <label></label>
@@ -156,38 +156,40 @@
       <table>
         <title>CDR</title>
         <search id="cdr">
-          <query>index="policyguru_data" resourceId="enum*"  [ 
-  search index="policyguru_data" resourceId="enum*" "$direction_token$" $sd_token$="$number_token$" | table guid
+          <query>index="policyguru_data" resourceId="enum*"  [
+    search index="policyguru_data" resourceId="enum*" "$direction_token$" $sd_token$="$number_token$" | table guid | format
 ]
-| stats values(*) as * by guid
-| eval timestamp = mvindex(timestamp, 0)
-| eval _time=(timestamp/1000)
-| rename disposition.disposition as disposition
-id as policyrule
-modalities{}.modality as calltype
-connections{}.left.facets{}.country as sourcecountry
-connections{}.left.facets{}.number as sourcenumber
-connections{}.right.facets{}.country as destinationcountry
-connections{}.right.facets{}.number as destinationnumber
-resourceId as routername
-| rex field=meta "direction:(?&lt;direction&gt;.*)"
+| stats
+values(disposition.disposition) as disposition
+values(id) as policyrule
+values(connections{}.left.facets{}.country) as sourcecountry
+values(connections{}.left.facets{}.number) as sourcenumber
+values(connections{}.right.facets{}.country) as destinationcountry
+values(connections{}.right.facets{}.number) as destinationnumber
+values(resourceId) as routername
+values(timestamp) as timestamp_epoch
+values(meta) as meta
+by guid
+| eval timestamp_epoch = mvindex(timestamp_epoch, 0)
+| eval _time=(timestamp_epoch/1000)
+| eval _time=strftime(_time,"%Y-%m-%d %H:%M:%S")
+| rex field=meta "direction:(?<direction>.*)"
 | table
 _time
+timestamp_epoch
 guid
-timestamp 
 direction
 routername
-calltype
 sourcenumber
 sourcecountry
 destinationnumber
 destinationcountry
 policyrule
 disposition
-| sort _time
+| sort 25000 _time
 | lookup pg_directory_listings.csv number AS sourcenumber OUTPUT lists
 | rename lists as sourcenumber_lists
-| rex field=destinationregion "(?&lt;city&gt;.*), (?&lt;Code&gt;.*)"
+| rex field=destinationregion "(?<city>.*), (?<Code>.*)"
 | lookup us_states.csv Code OUTPUT State as state
 | eval dregion=case(len(Code)==2,state,1=1,destinationregion)
 | fields - Code,city,state</query>
