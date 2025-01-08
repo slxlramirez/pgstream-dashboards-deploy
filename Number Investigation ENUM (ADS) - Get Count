@@ -1,0 +1,41 @@
+<form version="1.1">
+  <label>Number Investigation ENUM (ADS) - Get Count</label>
+  <fieldset submitButton="true">
+    <input type="time" token="tc">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+    <input type="dropdown" token="direction_token">
+      <label>Direction</label>
+      <choice value="INBOUND">INBOUND</choice>
+      <choice value="OUTBOUND">OUTBOUND</choice>
+      <default>INBOUND</default>
+      <initialValue>INBOUND</initialValue>
+    </input>
+    <input type="dropdown" token="sd_token">
+      <label>Source or Destination</label>
+      <choice value="connections{}.left.facets{}.number">Source</choice>
+      <choice value="connections{}.right.facets{}.number">Destination</choice>
+    </input>
+    <input type="text" token="number_token">
+      <label>Number (Exact Match)</label>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <single>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*"  "$direction_token$" $sd_token$="$number_token$"
+| stats count</query>
+          <earliest>$tc.earliest$</earliest>
+          <latest>$tc.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </single>
+    </panel>
+  </row>
+</form>
