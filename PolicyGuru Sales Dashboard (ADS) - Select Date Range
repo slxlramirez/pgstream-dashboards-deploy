@@ -1,0 +1,163 @@
+<form version="1.1">
+  <label>PolicyGuru Sales Dashboard (ADS) - Select Date Range</label>
+  <fieldset submitButton="true">
+    <input type="time" token="field1">
+      <label></label>
+      <default>
+        <earliest>-24h@h</earliest>
+        <latest>now</latest>
+      </default>
+    </input>
+  </fieldset>
+  <row>
+    <panel>
+      <table>
+        <title>Earliest Timestamp</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" "INBOUND"
+| stats min(_time) as _time</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Terminated by Rules by Month</title>
+        <search id="term_month">
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="TERMINATED"
+| bin _time span=1mon 
+| stats count by _time disposition.disposition id</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Terminated by Month</title>
+        <search base="term_month">
+          <query>| stats SUM(count) as calls by _time</query>
+        </search>
+        <option name="drilldown">none</option>
+        <format type="number" field="calls">
+          <option name="precision">0</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>Allowed Calls by Month by Rule</title>
+        <search id="allowed_month">
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="ALLOWED"
+| bin _time span=1mon 
+| stats count by _time disposition.disposition id</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>Allowed by Month</title>
+        <search base="allowed_month">
+          <query>| stats SUM(count) as calls by _time
+| sort  -count</query>
+        </search>
+        <option name="drilldown">none</option>
+        <format type="number" field="calls">
+          <option name="precision">0</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>NVCL Terminated</title>
+        <search base="nvcl_calls">
+          <query>| search disposition="TERMINATED"
+| stats sum(count) as calls by _time disposition</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    <panel>
+      <table>
+        <title>NVCL Allowed</title>
+        <search base="nvcl_calls">
+          <query>| search disposition="ALLOWED"
+| stats sum(count) as calls by _time disposition</query>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>NVCL Calls</title>
+        <search id="nvcl_calls">
+          <query>index="policyguru_data" resourceId="enum*" 
+[search index="policyguru_data" resourceId="enum*" "INBOUND" [| dbxquery 
+timeout=1800 connection="ngp_connection" 
+query="
+					SELECT 	CASE LEFT(a.value, 1)
+				      WHEN '^' THEN SUBSTR(a.value, STRPOS(a.value,'+'), (LENGTH(a.value)-STRPOS(a.value,'+')+1))
+	  			      ELSE a.value
+				    END as value
+					FROM 	    MASTER.LISTING a INNER JOIN master.listinggroup b ON a.listinggroupid=b.id
+					WHERE 	  b.name = 'Negative_Value_Call_List_HCL'
+" shortnames=t
+| fields value
+| rename value as "connections{}.left.facets{}.number"
+| format] 
+| fields guid
+| format
+]
+| stats
+values("connections{}.left.facets{}.number") as sourcenumber
+values("connections{}.left.facets{}.country") as sourcecountry
+values("connections{}.right.facets{}.number") as destinationnumber
+values("connections{}.right.facets{}.country") as destinationcountry
+values("meta") as meta
+values("id") as policyrule
+values("modalities{}.modality") as calltype
+values("resourceId") as routername
+values("disposition.disposition") as disposition
+values("timestamp") as timestamp
+values("timestampStr") as timestampStr
+by guid
+| rex field=meta "direction:(?&lt;direction&gt;.*)"
+| eval timestamp = mvindex(timestamp, 0)
+| eval _time=(timestamp/1000)
+| eval _time=strftime(_time,"%Y-%m") 
+| eval timestampStr = mvindex(timestampStr, 0)
+| rex field=timestampStr "(?&lt;timestampGmt&gt;^[^.]+)"
+| rex field=sourcenumber "\+(?&lt;cc&gt;\d)(?&lt;npa&gt;\d\d\d)(?&lt;nxx&gt;\d+)"
+| rename cc as "Country Code" npa as "Area Code" nxx as "Local Number"
+| lookup securelogix_nhcl.csv "Country Code" "Area Code" "Local Number" OUTPUT "Last Name" as "category"
+| fields - "Area Code" "Country Code" "Local Number" 
+| stats count by _time disposition category</query>
+          <earliest>$field1.earliest$</earliest>
+          <latest>$field1.latest$</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="number" field="calls">
+          <option name="precision">0</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+</form>
