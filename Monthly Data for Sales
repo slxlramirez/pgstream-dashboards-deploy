@@ -1,0 +1,52 @@
+<dashboard>
+  <label>Monthly Data for Sales (AIG)</label>
+  <row>
+    <panel>
+      <table>
+        <title>Report Date</title>
+        <search>
+          <query>| makeresults 
+| eval report_date=strftime(relative_time(_time,"-1mon"),"%Y-%m (%b %Y)")
+| fields - _time</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>All Calls by Disposition (AIG)</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" disposition.disposition="*" | stats count by disposition.disposition | addcoltotals | fillnull value="TOTAL" disposition.disposition</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <table>
+        <title>NVCL Calls (AIG)</title>
+        <search>
+          <query>index="policyguru_data" resourceId="enum*" [
+search index="policyguru_data" resourceId="enum*" "INBOUND"
+ [ | inputlookup pg_directory_listings.csv where lists="*Negative_Value_Call_List_HCL*" | fields number | rename number as "connections{}.left.facets{}.number" | format ]
+| stats values(*) as * by guid
+| stats count by guid
+| fields guid
+]
+| stats values(disposition.disposition) as disposition by guid
+| stats count by disposition</query>
+          <earliest>-1mon@mon</earliest>
+          <latest>@mon</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>
