@@ -13,7 +13,7 @@
     <panel>
       <chart>
         <search>
-          <query>index="policyguru_data" resourceId="enum*" "INBOUND"
+          <query>index="policyguru_data" resourceId="enum*"
 | timechart span=1d count</query>
           <earliest>$field1.earliest$</earliest>
           <latest>$field1.latest$</latest>
@@ -29,7 +29,7 @@
       <chart>
         <title>by Routername</title>
         <search>
-          <query>index="policyguru_data" resourceId="enum*" "INBOUND"
+          <query>index="policyguru_data" resourceId="enum*"
 | timechart span=1d count by resourceId</query>
           <earliest>$field1.earliest$</earliest>
           <latest>$field1.latest$</latest>
