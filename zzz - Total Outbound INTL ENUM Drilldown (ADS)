@@ -1,4 +1,4 @@
-<form>
+<form version="1.1">
   <label>zzz - Total Outbound INTL ENUM Drilldown (ADS)</label>
   <fieldset submitButton="false">
     <input type="time" token="tc">
@@ -87,11 +87,26 @@
       <table>
         <title>Top Destinations</title>
         <search base="cdr">
-          <query>| stats count as calls by destinationnumber
+          <query>| stats count as calls by destinationnumber destinationcountry
 | sort - calls</query>
         </search>
         <option name="drilldown">none</option>
+        <option name="refresh.display">progressbar</option>
       </table>
+    </panel>
+    <panel>
+      <chart>
+        <title>by Country</title>
+        <search base="cdr">
+          <query>| stats count by destinationcountry
+| sort -count</query>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.drilldown">all</option>
+        <drilldown>
+          <link target="_blank">/app/search/zzz_total_outbound_intl_enum_timechart_specific_country_ads__requires_parm?destinationCountry_token=$click.value$</link>
+        </drilldown>
+      </chart>
     </panel>
   </row>
   <row>
@@ -99,10 +114,7 @@
       <table>
         <title>display data</title>
         <search id="cdr">
-          <query>index="policyguru_data" resourceId="enum*" NOT disposition.disposition="*"
-| rex field=meta "direction:(?&lt;direction&gt;.*)"
-| search direction="OUTBOUND"
-| search NOT connections{}.right.facets{}.country="United States" AND NOT connections{}.right.facets{}.country="Unknown"
+          <query>index="policyguru_data" resourceId="enum*" "OUTBOUND" NOT disposition.disposition="*" NOT ("connections{}.right.facets{}.country"="United States")
 | table 
 _time timestamp timestampStr 
 state.state 
